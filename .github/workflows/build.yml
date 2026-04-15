@@ -36,14 +36,16 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Apply RNDIS patch
+      - name: Locate and patch rndis_host.c
         run: |
           cd source
-          git apply ../patches/999-rndis-host-rx-fixup-workaround.patch || {
-            echo "Patch failed, checking target file..."
-            test -f package/kernel/linux/files/drivers/net/usb/rndis_host.c
-            exit 1
-          }
+          FILE=$(find . -type f -name rndis_host.c | head -n 1)
+          echo "Found file: $FILE"
+          test -n "$FILE"
+          grep -n 'skb_pull(skb, msg_len - sizeof \*hdr);' "$FILE"
+          sed -i 's/skb_pull(skb, msg_len - sizeof \*hdr);/skb_pull(skb, msg_len - data_offset - 8);/' "$FILE"
+          echo "Patched result:"
+          grep -n 'skb_pull(skb, msg_len - data_offset - 8);' "$FILE"
 
       - name: Prepare config for RAX3000M
         run: |
